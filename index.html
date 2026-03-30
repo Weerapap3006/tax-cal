@@ -10,6 +10,8 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -20,7 +22,7 @@
 
         const text = {
             en: {
-                title: "TaxMate",
+                title: "Tax Calculator Pro.",
                 reset: "Reset",
                 lightMode: "Light Mode",
                 darkMode: "Dark Mode",
@@ -49,7 +51,6 @@
                 hideBreakdown: "Hide Breakdown",
                 bracket: "Bracket",
                 taxPaid: "Tax Paid",
-                aiButton: "✨ Smart Optimize",
                 taxTipsTitle: "Tax Tips",
                 tip1: "Net income up to 150,000 THB is completely tax-free (0%).",
                 tip2: "Investing in SSF/RMF helps lower your tax bracket. A DCA strategy is highly recommended.",
@@ -57,7 +58,7 @@
                 close: "Got it"
             },
             th: {
-                title: "TaxMate",
+                title: "คำนวณภาษี Pro.",
                 reset: "ล้างค่า",
                 lightMode: "โหมดสว่าง",
                 darkMode: "โหมดมืด",
@@ -86,7 +87,6 @@
                 hideBreakdown: "ซ่อนรายละเอียด",
                 bracket: "ฐานภาษี",
                 taxPaid: "ภาษีที่เสีย",
-                aiButton: "✨ AI วิเคราะห์แผนลดหย่อน",
                 taxTipsTitle: "เกร็ดความรู้ภาษี",
                 tip1: "เงินได้สุทธิ 150,000 บาทแรก ได้รับการยกเว้นภาษี (0%) ทันที",
                 tip2: "กองทุน SSF/RMF นอกจากจะช่วยลดหย่อนภาษีแล้ว ยังเหมาะกับการลงทุนแบบถัวเฉลี่ย (DCA) เพื่ออนาคต",
@@ -107,64 +107,50 @@
             const [rmf, setRmf] = useState('');
             const [thaiEsg, setThaiEsg] = useState('');
             const [customDeductions, setCustomDeductions] = useState('');
-            
             const [showBreakdown, setShowBreakdown] = useState(false);
             const [showTips, setShowTips] = useState(false);
-            
-            // 🔥 State สำหรับเก็บคำแนะนำจาก AI
-            const [aiAdvice, setAiAdvice] = useState(null);
 
-            useEffect(() => {
-                const savedData = localStorage.getItem('taxDataProV7');
-                if (savedData) {
-                    const data = JSON.parse(savedData);
-                    setAnnualIncome(data.inc || '');
-                    setBonus(data.bon || '');
-                    setHasSocialSec(data.soc !== undefined ? data.soc : true);
-                    setLifeIns(data.life || '');
-                    setSsf(data.ssf || '');
-                    setRmf(data.rmf || '');
-                    setThaiEsg(data.esg || '');
-                    setCustomDeductions(data.ded || '');
-                    setIsDarkMode(data.theme || false);
-                    setLang(data.savedLang || 'th');
+            // 🔥 ฟังก์ชันแปลงตัวเลขให้มีลูกน้ำ (ใช้สำหรับแสดงผลในช่องกรอก)
+            const formatWithComma = (val) => {
+                if (!val && val !== 0) return '';
+                let clean = val.toString().replace(/[^0-9]/g, ''); // เอาเฉพาะตัวเลข
+                if (clean === '') return '';
+                return parseInt(clean).toLocaleString('en-US'); // ใส่ลูกน้ำ
+            };
+
+            // 🔥 ฟังก์ชันดึงค่าตัวเลขล้วน (เอาลูกน้ำออกเพื่อใช้คำนวณ)
+            const getRawNumber = (val) => {
+                if (!val) return 0;
+                return parseFloat(val.toString().replace(/,/g, '')) || 0;
+            };
+
+            // 🔥 ฟังก์ชันจัดการการเปลี่ยนแปลงในช่องกรอก
+            const handleNumberChange = (value, setter, max = Infinity) => {
+                let cleanValue = value.replace(/[^0-9]/g, '');
+                if (cleanValue === '') {
+                    setter('');
+                    return;
                 }
-            }, []);
-
-            useEffect(() => {
-                localStorage.setItem('taxDataProV7', JSON.stringify({
-                    inc: annualIncome, bon: bonus, soc: hasSocialSec,
-                    life: lifeIns, ssf: ssf, rmf: rmf, esg: thaiEsg,
-                    ded: customDeductions, theme: isDarkMode, savedLang: lang
-                }));
-                // ล้างคำแนะนำ AI ทุกครั้งที่เปลี่ยนตัวเลข
-                setAiAdvice(null);
-            }, [annualIncome, bonus, hasSocialSec, lifeIns, ssf, rmf, thaiEsg, customDeductions, isDarkMode, lang]);
-
-            const enforcePositive = (value) => value.replace(/[^0-9]/g, ''); 
-            const enforceMaxLimit = (value, maxLimit) => {
-                let cleanValue = value.replace(/[^0-9]/g, ''); 
-                if (cleanValue === '') return '';
-                const num = parseInt(cleanValue, 10);
-                if (num > maxLimit) return maxLimit.toString();
-                return cleanValue;
+                let num = parseInt(cleanValue);
+                if (num > max) num = max;
+                setter(formatWithComma(num));
             };
 
             const calculateTax = () => {
-                const inc = parseFloat(annualIncome) || 0;
-                const bon = parseFloat(bonus) || 0;
+                const inc = getRawNumber(annualIncome);
+                const bon = getRawNumber(bonus);
                 const totalIncome = inc + bon;
 
                 const standardDeduction = Math.min(totalIncome * 0.5, 100000);
                 const personalDeduction = 60000;
                 const socSecDeduction = hasSocialSec ? 9000 : 0;
                 
-                const lifeLimit = Math.min(parseFloat(lifeIns) || 0, 100000);
-                const ssfLimit = Math.min(parseFloat(ssf) || 0, totalIncome * 0.3, 200000);
-                const rmfLimit = Math.min(parseFloat(rmf) || 0, totalIncome * 0.3, 500000);
+                const lifeLimit = Math.min(getRawNumber(lifeIns), 100000);
+                const ssfLimit = Math.min(getRawNumber(ssf), totalIncome * 0.3, 200000);
+                const rmfLimit = Math.min(getRawNumber(rmf), totalIncome * 0.3, 500000);
                 const combinedSsfRmf = Math.min(ssfLimit + rmfLimit, 500000);
-                const esgLimit = Math.min(parseFloat(thaiEsg) || 0, totalIncome * 0.3, 300000);
-                const otherLimit = parseFloat(customDeductions) || 0;
+                const esgLimit = Math.min(getRawNumber(thaiEsg), totalIncome * 0.3, 300000);
+                const otherLimit = getRawNumber(customDeductions);
 
                 const totalDeductions = standardDeduction + personalDeduction + socSecDeduction + lifeLimit + combinedSsfRmf + esgLimit + otherLimit;
                 const netIncome = Math.max(0, totalIncome - totalDeductions);
@@ -173,16 +159,15 @@
                 let remaining = netIncome;
                 const breakdown = [];
                 
-                // ตารางภาษีแบบเก็บขีดจำกัดล่างไว้ด้วยเพื่อคำนวณ AI
                 const brackets = [
-                    { min: 0, limit: 150000, rate: 0 },
-                    { min: 150000, limit: 150000, rate: 0.05 },
-                    { min: 300000, limit: 200000, rate: 0.10 },
-                    { min: 500000, limit: 250000, rate: 0.15 },
-                    { min: 750000, limit: 250000, rate: 0.20 },
-                    { min: 1000000, limit: 1000000, rate: 0.25 },
-                    { min: 2000000, limit: 3000000, rate: 0.30 },
-                    { min: 5000000, limit: Infinity, rate: 0.35 }
+                    { limit: 150000, rate: 0 },
+                    { limit: 150000, rate: 0.05 },
+                    { limit: 200000, rate: 0.10 },
+                    { limit: 250000, rate: 0.15 },
+                    { limit: 250000, rate: 0.20 },
+                    { limit: 1000000, rate: 0.25 },
+                    { limit: 3000000, rate: 0.30 },
+                    { limit: Infinity, rate: 0.35 }
                 ];
 
                 for (let i = 0; i < brackets.length; i++) {
@@ -196,39 +181,14 @@
                         breakdown.push({
                             rate: brackets[i].rate * 100,
                             taxable: taxableAmount,
-                            taxPaid: taxInBracket,
-                            minThreshold: brackets[i].min // เก็บไว้ให้ AI ใช้
+                            taxPaid: taxInBracket
                         });
                     }
                 }
 
                 const effectiveRate = totalIncome > 0 ? ((tax / totalIncome) * 100).toFixed(2) : 0;
+
                 return { totalIncome, totalDeductions, netIncome, tax, breakdown, effectiveRate };
-            };
-
-            // 🔥 ฟังก์ชัน AI Optimizer ตัวเก่งของเรา
-            const generateAIAdvice = () => {
-                const { netIncome, breakdown } = calculateTax();
-                
-                if (netIncome <= 150000) {
-                    setAiAdvice(lang === 'th' 
-                        ? "🎉 เยี่ยมมาก! ตอนนี้คุณไม่ต้องเสียภาษีเลย ไม่จำเป็นต้องซื้อกองทุนเพื่อลดหย่อนเพิ่มแล้วครับ แนะนำให้นำเงินไปลงทุนตามเป้าหมายอื่นแทน"
-                        : "🎉 Awesome! You currently pay 0 tax. No need to buy more tax-deductible funds. Focus on other investment goals!");
-                    return;
-                }
-
-                // หาว่าปัจจุบันตกอยู่ฐานภาษีสูงสุดที่เท่าไหร่
-                const currentBracket = breakdown[breakdown.length - 1];
-                const currentRate = currentBracket.rate;
-                
-                // คำนวณส่วนต่างว่าต้องลดอีกเท่าไหร่ถึงจะหลุดไปฐานที่ถูกกว่า
-                const amountToDrop = netIncome - currentBracket.minThreshold;
-
-                if (amountToDrop > 0) {
-                    setAiAdvice(lang === 'th'
-                        ? `💡 วิเคราะห์แผน: ปัจจุบันคุณโดนภาษีเรท ${currentRate}% ถ้าคุณซื้อกองทุน (SSF/RMF/ThaiESG) เพิ่มอีก ฿${Math.ceil(amountToDrop).toLocaleString()} ฐานภาษีคุณจะร่วงลงไปอยู่เรทที่ถูกกว่าทันทีครับ!`
-                        : `💡 Optimizer: You are currently at the ${currentRate}% tax bracket. If you invest ฿${Math.ceil(amountToDrop).toLocaleString()} more in SSF/RMF, you will drop to the lower tax bracket immediately!`);
-                }
             };
 
             const { totalIncome, totalDeductions, netIncome, tax, breakdown, effectiveRate } = calculateTax();
@@ -248,10 +208,7 @@
             const resetData = () => {
                 setAnnualIncome(''); setBonus(''); setHasSocialSec(true);
                 setLifeIns(''); setSsf(''); setRmf(''); setThaiEsg(''); setCustomDeductions('');
-                setAiAdvice(null);
             };
-
-            const toggleLang = () => setLang(lang === 'th' ? 'en' : 'th');
 
             return (
                 <div className={`min-h-screen transition-colors duration-300 ${themeBg} ${textPrimary} p-4 md:p-8 lg:p-12 pb-24 flex justify-center relative`}>
@@ -260,7 +217,7 @@
                         <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
                             <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
                             <div className="flex flex-wrap items-center gap-2">
-                                <button onClick={toggleLang} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{t.langToggle}</button>
+                                <button onClick={() => setLang(lang === 'th' ? 'en' : 'th')} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{t.langToggle}</button>
                                 <button onClick={() => setIsDarkMode(!isDarkMode)} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{isDarkMode ? t.lightMode : t.darkMode}</button>
                                 <button onClick={resetData} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{t.reset}</button>
                             </div>
@@ -274,13 +231,14 @@
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className={`block text-sm mb-2 ${textSecondary}`}>{t.annualSalary}</label>
-                                            <input type="text" inputMode="numeric" value={annualIncome} onChange={(e) => setAnnualIncome(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                            <input type="text" value={annualIncome} onChange={(e) => handleNumberChange(e.target.value, setAnnualIncome)} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
                                         </div>
                                         <div>
                                             <label className={`block text-sm mb-2 ${textSecondary}`}>{t.annualBonus}</label>
-                                            <input type="text" inputMode="numeric" value={bonus} onChange={(e) => setBonus(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                            <input type="text" value={bonus} onChange={(e) => handleNumberChange(e.target.value, setBonus)} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
                                         </div>
                                     </div>
+                                    <p className={`text-xs mt-3 ${textSecondary}`}>{t.autoApplyText}</p>
                                 </div>
 
                                 <div>
@@ -297,22 +255,17 @@
                                 <div>
                                     <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.investments}</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.lifeIns}</label>
-                                            <input type="text" inputMode="numeric" value={lifeIns} onChange={(e) => setLifeIns(enforceMaxLimit(e.target.value, 100000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
-                                        </div>
-                                        <div>
-                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.ssf}</label>
-                                            <input type="text" inputMode="numeric" value={ssf} onChange={(e) => setSsf(enforceMaxLimit(e.target.value, 200000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
-                                        </div>
-                                        <div>
-                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.rmf}</label>
-                                            <input type="text" inputMode="numeric" value={rmf} onChange={(e) => setRmf(enforceMaxLimit(e.target.value, 500000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
-                                        </div>
-                                        <div>
-                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.thaiEsg}</label>
-                                            <input type="text" inputMode="numeric" value={thaiEsg} onChange={(e) => setThaiEsg(enforceMaxLimit(e.target.value, 300000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
-                                        </div>
+                                        <div><label className={`block text-xs mb-2 ${textSecondary}`}>{t.lifeIns}</label><input type="text" value={lifeIns} onChange={(e) => handleNumberChange(e.target.value, setLifeIns, 100000)} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" /></div>
+                                        <div><label className={`block text-xs mb-2 ${textSecondary}`}>{t.ssf}</label><input type="text" value={ssf} onChange={(e) => handleNumberChange(e.target.value, setSsf, 200000)} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" /></div>
+                                        <div><label className={`block text-xs mb-2 ${textSecondary}`}>{t.rmf}</label><input type="text" value={rmf} onChange={(e) => handleNumberChange(e.target.value, setRmf, 500000)} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" /></div>
+                                        <div><label className={`block text-xs mb-2 ${textSecondary}`}>{t.thaiEsg}</label><input type="text" value={thaiEsg} onChange={(e) => handleNumberChange(e.target.value, setThaiEsg, 300000)} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" /></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.otherDeductions}</h2>
+                                    <div>
+                                        <input type="text" value={customDeductions} onChange={(e) => handleNumberChange(e.target.value, setCustomDeductions)} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
                                     </div>
                                 </div>
                             </div>
@@ -346,20 +299,16 @@
                                         </span>
                                     </div>
 
-                                    {/* 🔥 ปุ่ม AI Optimizer โฉมใหม่ */}
-                                    <button 
-                                        onClick={generateAIAdvice}
-                                        className="w-full mb-4 py-3 rounded-xl border border-blue-500 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 text-sm font-bold transition-all shadow-sm flex justify-center items-center gap-2"
-                                    >
-                                        {t.aiButton}
-                                    </button>
-
-                                    {/* 🔥 กล่องแสดงคำแนะนำ AI */}
-                                    {aiAdvice && (
-                                        <div className="mb-6 p-4 rounded-xl border border-blue-200 bg-white dark:bg-[#111] dark:border-[#333] shadow-sm animate-[fade-in_0.3s_ease-out]">
-                                            <p className="text-sm leading-relaxed">{aiAdvice}</p>
+                                    <div className="mb-6 space-y-2">
+                                        <div className={`w-full h-2 ${isDarkMode ? 'bg-[#333]' : 'bg-[#E5E5E5]'} rounded-full overflow-hidden flex`}>
+                                            <div className={`h-full ${isDarkMode ? 'bg-white' : 'bg-black'} transition-all duration-500`} style={{ width: `${totalIncome > 0 ? ((totalIncome - tax) / totalIncome) * 100 : 0}%` }}></div>
+                                            <div className="h-full bg-gray-500 transition-all duration-500" style={{ width: `${totalIncome > 0 ? (tax / totalIncome) * 100 : 0}%` }}></div>
                                         </div>
-                                    )}
+                                        <div className="flex justify-between text-xs font-medium">
+                                            <span className={isDarkMode ? 'text-white' : 'text-black'}>{t.takeHome}</span>
+                                            <span className="text-gray-500">{t.tax}</span>
+                                        </div>
+                                    </div>
 
                                     <button 
                                         onClick={() => setShowBreakdown(!showBreakdown)}
@@ -387,7 +336,6 @@
                         </div>
                     </div>
 
-                    {/* ปุ่ม Floating ขวาล่าง */}
                     <button 
                         onClick={() => setShowTips(true)}
                         className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl flex items-center gap-2 transition-transform hover:scale-105 z-40 ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
@@ -396,37 +344,21 @@
                         <span className="font-semibold text-sm pr-2 hidden md:inline">{t.taxTipsTitle}</span>
                     </button>
 
-                    {/* Popup เกร็ดความรู้ */}
                     {showTips && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
                             <div className={`relative w-full max-w-md p-6 md:p-8 rounded-3xl shadow-2xl ${cardBg} animate-[fade-in_0.2s_ease-out]`}>
-                                
                                 <button onClick={() => setShowTips(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-[#333]' : 'hover:bg-gray-100'}`}>
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
-
-                                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                                    💡 {t.taxTipsTitle}
-                                </h3>
-                                
+                                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">💡 {t.taxTipsTitle}</h3>
                                 <div className="space-y-4 text-sm opacity-90">
-                                    <div className="flex gap-3 items-start">
-                                        <span className="text-lg leading-none mt-0.5">🔹</span>
-                                        <p>{t.tip1}</p>
-                                    </div>
-                                    <div className="flex gap-3 items-start">
-                                        <span className="text-lg leading-none mt-0.5">🔹</span>
-                                        <p>{t.tip2}</p>
-                                    </div>
-                                    <div className="flex gap-3 items-start">
-                                        <span className="text-lg leading-none mt-0.5">🔹</span>
-                                        <p>{t.tip3}</p>
-                                    </div>
+                                    <p>🔹 {t.tip1}</p>
+                                    <p>🔹 {t.tip2}</p>
+                                    <p>🔹 {t.tip3}</p>
                                 </div>
-
                                 <button 
                                     onClick={() => setShowTips(false)} 
-                                    className={`w-full mt-8 py-3 rounded-xl text-sm font-semibold transition-all ${isDarkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+                                    className={`w-full mt-8 py-3 rounded-xl text-sm font-semibold transition-all ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
                                 >
                                     {t.close}
                                 </button>
