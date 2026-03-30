@@ -89,3 +89,339 @@
                 tip1: "เงินได้สุทธิ 150,000 บาทแรก ได้รับการยกเว้นภาษี (0%) ทันที",
                 tip2: "กองทุน SSF/RMF นอกจากจะช่วยลดหย่อนภาษีแล้ว ยังเหมาะกับการลงทุนแบบถัวเฉลี่ย (DCA) เพื่ออนาคต",
                 tip3: "มนุษย์เงินเดือนที่ไม่มีลดหย่อนอื่นเลย จะเริ่มเสียภาษีเมื่อเงินเดือนเกิน 25,833 บาท/เดือน",
+                close: "เข้าใจแล้ว"
+            }
+        };
+
+        const TaxCalculator = () => {
+            const [isDarkMode, setIsDarkMode] = useState(false);
+            const [lang, setLang] = useState('th');
+            
+            const [annualIncome, setAnnualIncome] = useState('');
+            const [bonus, setBonus] = useState('');
+            const [hasSocialSec, setHasSocialSec] = useState(true);
+            const [lifeIns, setLifeIns] = useState('');
+            const [ssf, setSsf] = useState('');
+            const [rmf, setRmf] = useState('');
+            const [thaiEsg, setThaiEsg] = useState('');
+            const [customDeductions, setCustomDeductions] = useState('');
+            const [showBreakdown, setShowBreakdown] = useState(false);
+            
+            // 🔥 State สำหรับเปิด/ปิด Popup เกร็ดความรู้
+            const [showTips, setShowTips] = useState(false);
+
+            useEffect(() => {
+                const savedData = localStorage.getItem('taxDataProV5');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    setAnnualIncome(data.inc || '');
+                    setBonus(data.bon || '');
+                    setHasSocialSec(data.soc !== undefined ? data.soc : true);
+                    setLifeIns(data.life || '');
+                    setSsf(data.ssf || '');
+                    setRmf(data.rmf || '');
+                    setThaiEsg(data.esg || '');
+                    setCustomDeductions(data.ded || '');
+                    setIsDarkMode(data.theme || false);
+                    setLang(data.savedLang || 'th');
+                }
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('taxDataProV5', JSON.stringify({
+                    inc: annualIncome, bon: bonus, soc: hasSocialSec,
+                    life: lifeIns, ssf: ssf, rmf: rmf, esg: thaiEsg,
+                    ded: customDeductions, theme: isDarkMode, savedLang: lang
+                }));
+            }, [annualIncome, bonus, hasSocialSec, lifeIns, ssf, rmf, thaiEsg, customDeductions, isDarkMode, lang]);
+
+            // 🔥 ฟังก์ชันกรองตัวอักษร: อนุญาตแค่เลข 0-9 เท่านั้น (บล็อกสัญลักษณ์และตัวอักษร)
+            const enforcePositive = (value) => {
+                return value.replace(/[^0-9]/g, ''); 
+            };
+
+            // 🔥 ฟังก์ชันล็อกเพดานสูงสุด และกรองตัวอักษรพิเศษ
+            const enforceMaxLimit = (value, maxLimit) => {
+                let cleanValue = value.replace(/[^0-9]/g, ''); 
+                if (cleanValue === '') return '';
+                const num = parseInt(cleanValue, 10);
+                if (num > maxLimit) return maxLimit.toString();
+                return cleanValue;
+            };
+
+            const calculateTax = () => {
+                const inc = parseFloat(annualIncome) || 0;
+                const bon = parseFloat(bonus) || 0;
+                const totalIncome = inc + bon;
+
+                const standardDeduction = Math.min(totalIncome * 0.5, 100000);
+                const personalDeduction = 60000;
+                const socSecDeduction = hasSocialSec ? 9000 : 0;
+                
+                const lifeLimit = Math.min(parseFloat(lifeIns) || 0, 100000);
+                const ssfLimit = Math.min(parseFloat(ssf) || 0, totalIncome * 0.3, 200000);
+                const rmfLimit = Math.min(parseFloat(rmf) || 0, totalIncome * 0.3, 500000);
+                const combinedSsfRmf = Math.min(ssfLimit + rmfLimit, 500000);
+                const esgLimit = Math.min(parseFloat(thaiEsg) || 0, totalIncome * 0.3, 300000);
+                const otherLimit = parseFloat(customDeductions) || 0;
+
+                const totalDeductions = standardDeduction + personalDeduction + socSecDeduction + lifeLimit + combinedSsfRmf + esgLimit + otherLimit;
+                const netIncome = Math.max(0, totalIncome - totalDeductions);
+
+                let tax = 0;
+                let remaining = netIncome;
+                const breakdown = [];
+                
+                const brackets = [
+                    { limit: 150000, rate: 0 },
+                    { limit: 150000, rate: 0.05 },
+                    { limit: 200000, rate: 0.10 },
+                    { limit: 250000, rate: 0.15 },
+                    { limit: 250000, rate: 0.20 },
+                    { limit: 1000000, rate: 0.25 },
+                    { limit: 3000000, rate: 0.30 },
+                    { limit: Infinity, rate: 0.35 }
+                ];
+
+                for (let i = 0; i < brackets.length; i++) {
+                    if (remaining <= 0) break;
+                    const taxableAmount = Math.min(remaining, brackets[i].limit);
+                    const taxInBracket = taxableAmount * brackets[i].rate;
+                    tax += taxInBracket;
+                    remaining -= taxableAmount;
+                    
+                    if (taxableAmount > 0) {
+                        breakdown.push({
+                            rate: brackets[i].rate * 100,
+                            taxable: taxableAmount,
+                            taxPaid: taxInBracket
+                        });
+                    }
+                }
+
+                const effectiveRate = totalIncome > 0 ? ((tax / totalIncome) * 100).toFixed(2) : 0;
+
+                return { totalIncome, totalDeductions, netIncome, tax, breakdown, effectiveRate };
+            };
+
+            const { totalIncome, totalDeductions, netIncome, tax, breakdown, effectiveRate } = calculateTax();
+            const t = text[lang];
+
+            const themeBg = isDarkMode ? 'bg-[#111111]' : 'bg-[#F5F5F5]';
+            const cardBg = isDarkMode ? 'bg-[#000000] border-[#333333]' : 'bg-[#FFFFFF] border-[#E5E5E5]';
+            const textPrimary = isDarkMode ? 'text-[#F5F5F5]' : 'text-[#111111]';
+            const textSecondary = isDarkMode ? 'text-[#888888]' : 'text-[#666666]';
+            const inputClass = isDarkMode 
+                ? 'bg-[#111111] border-[#333333] text-[#F5F5F5] focus:border-[#FFFFFF]' 
+                : 'bg-[#F5F5F5] border-[#E5E5E5] text-[#111111] focus:border-[#000000]';
+            const btnClass = isDarkMode 
+                ? 'border-[#333] hover:bg-[#333] text-white' 
+                : 'border-[#ccc] hover:bg-[#e0e0e0] text-black';
+
+            const resetData = () => {
+                setAnnualIncome(''); setBonus(''); setHasSocialSec(true);
+                setLifeIns(''); setSsf(''); setRmf(''); setThaiEsg(''); setCustomDeductions('');
+            };
+
+            const toggleLang = () => setLang(lang === 'th' ? 'en' : 'th');
+
+            return (
+                <div className={`min-h-screen transition-colors duration-300 ${themeBg} ${textPrimary} p-4 md:p-8 lg:p-12 pb-24 flex justify-center relative`}>
+                    <div className="w-full max-w-6xl">
+                        
+                        <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
+                            <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button onClick={toggleLang} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{t.langToggle}</button>
+                                <button onClick={() => setIsDarkMode(!isDarkMode)} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{isDarkMode ? t.lightMode : t.darkMode}</button>
+                                <button onClick={resetData} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{t.reset}</button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                            
+                            {/* ฝั่งซ้าย (กรอกข้อมูล) */}
+                            <div className={`lg:col-span-7 p-6 md:p-8 rounded-3xl border ${cardBg} shadow-sm transition-all space-y-8 overflow-hidden`}>
+                                
+                                <div>
+                                    <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.incomeDetails}</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className={`block text-sm mb-2 ${textSecondary}`}>{t.annualSalary}</label>
+                                            <input type="text" inputMode="numeric" value={annualIncome} onChange={(e) => setAnnualIncome(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-sm mb-2 ${textSecondary}`}>{t.annualBonus}</label>
+                                            <input type="text" inputMode="numeric" value={bonus} onChange={(e) => setBonus(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                    </div>
+                                    <p className={`text-xs mt-3 ${textSecondary}`}>{t.autoApplyText}</p>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.basicDeduct}</h2>
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <div className={`w-6 h-6 flex-shrink-0 rounded-md border flex items-center justify-center transition-all ${hasSocialSec ? (isDarkMode ? 'bg-white border-white' : 'bg-black border-black') : (isDarkMode ? 'bg-transparent border-[#555]' : 'bg-transparent border-[#ccc]')}`}>
+                                            {hasSocialSec && <svg className={`w-4 h-4 ${isDarkMode ? 'text-black' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                        </div>
+                                        <input type="checkbox" className="hidden" checked={hasSocialSec} onChange={(e) => setHasSocialSec(e.target.checked)} />
+                                        <span className="text-sm font-medium">{t.socialSec}</span>
+                                    </label>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.investments}</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.lifeIns}</label>
+                                            <input type="text" inputMode="numeric" value={lifeIns} onChange={(e) => setLifeIns(enforceMaxLimit(e.target.value, 100000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.ssf}</label>
+                                            <input type="text" inputMode="numeric" value={ssf} onChange={(e) => setSsf(enforceMaxLimit(e.target.value, 200000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.rmf}</label>
+                                            <input type="text" inputMode="numeric" value={rmf} onChange={(e) => setRmf(enforceMaxLimit(e.target.value, 500000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.thaiEsg}</label>
+                                            <input type="text" inputMode="numeric" value={thaiEsg} onChange={(e) => setThaiEsg(enforceMaxLimit(e.target.value, 300000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.otherDeductions}</h2>
+                                    <div>
+                                        <input type="text" inputMode="numeric" value={customDeductions} onChange={(e) => setCustomDeductions(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {/* ฝั่งขวา (ผลลัพธ์) */}
+                            <div className="lg:col-span-5 relative">
+                                <div className={`sticky top-8 p-6 md:p-8 rounded-3xl border ${cardBg} shadow-xl transition-all overflow-hidden`}>
+                                    <h2 className="text-xl font-bold mb-6">{t.summary}</h2>
+                                    
+                                    <div className="space-y-3 mb-6 text-sm">
+                                        <div className="flex justify-between items-center gap-4">
+                                            <span className={`whitespace-nowrap flex-shrink-0 ${textSecondary}`}>{t.totalIncome}</span>
+                                            <span className="font-medium break-all text-right">฿{totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center gap-4">
+                                            <span className={`whitespace-nowrap flex-shrink-0 ${textSecondary}`}>{t.totalDeductions}</span>
+                                            <span className="font-medium break-all text-right">-฿{totalDeductions.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                        <div className={`flex justify-between items-center pt-3 border-t gap-4 ${isDarkMode ? 'border-[#333]' : 'border-[#E5E5E5]'}`}>
+                                            <span className={`whitespace-nowrap flex-shrink-0 ${textSecondary}`}>{t.netIncome}</span>
+                                            <span className="font-bold text-base break-all text-right">฿{netIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className={`p-6 rounded-2xl mb-6 flex flex-col items-center justify-center text-center ${isDarkMode ? 'bg-[#1a1a1a]' : 'bg-[#f9f9f9]'} border ${isDarkMode ? 'border-[#333]' : 'border-[#E5E5E5]'}`}>
+                                        <p className={`text-sm mb-1 ${textSecondary}`}>{t.estimatedTax}</p>
+                                        <h3 className="text-4xl lg:text-5xl font-extrabold tracking-tighter my-2 w-full break-words px-2">
+                                            ฿{tax.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                        </h3>
+                                        <span className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-[#333] text-white' : 'bg-[#e0e0e0] text-black'}`}>
+                                            {t.effRate}: {effectiveRate}%
+                                        </span>
+                                    </div>
+
+                                    <div className="mb-6 space-y-2">
+                                        <div className={`w-full h-2 ${isDarkMode ? 'bg-[#333]' : 'bg-[#E5E5E5]'} rounded-full overflow-hidden flex`}>
+                                            <div className={`h-full ${isDarkMode ? 'bg-white' : 'bg-black'} transition-all duration-500`} style={{ width: `${totalIncome > 0 ? ((totalIncome - tax) / totalIncome) * 100 : 0}%` }}></div>
+                                            <div className="h-full bg-gray-500 transition-all duration-500" style={{ width: `${totalIncome > 0 ? (tax / totalIncome) * 100 : 0}%` }}></div>
+                                        </div>
+                                        <div className="flex justify-between text-xs font-medium">
+                                            <span className={isDarkMode ? 'text-white' : 'text-black'}>{t.takeHome}</span>
+                                            <span className="text-gray-500">{t.tax}</span>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => setShowBreakdown(!showBreakdown)}
+                                        className={`w-full py-3 rounded-xl border text-sm font-medium transition-all ${btnClass}`}
+                                    >
+                                        {showBreakdown ? t.hideBreakdown : t.viewBreakdown}
+                                    </button>
+
+                                    {showBreakdown && breakdown.length > 0 && (
+                                        <div className={`mt-4 p-4 rounded-xl border text-sm ${isDarkMode ? 'bg-[#111] border-[#333]' : 'bg-white border-[#E5E5E5]'}`}>
+                                            <div className={`flex justify-between font-semibold border-b pb-2 mb-2 ${isDarkMode ? 'border-[#333]' : 'border-[#E5E5E5]'}`}>
+                                                <span>{t.bracket}</span>
+                                                <span>{t.taxPaid}</span>
+                                            </div>
+                                            {breakdown.map((b, index) => (
+                                                <div key={index} className="flex justify-between py-1 opacity-80 gap-4">
+                                                    <span className="whitespace-nowrap flex-shrink-0">{b.rate === 0 ? '0% (ยกเว้น)' : `${b.rate}%`}</span>
+                                                    <span className="break-all text-right">฿{b.taxPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 🔥 ปุ่ม Floating Button ตรงมุมขวาล่าง */}
+                    <button 
+                        onClick={() => setShowTips(true)}
+                        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl flex items-center gap-2 transition-transform hover:scale-105 z-40 ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
+                    >
+                        <span className="text-xl">💡</span>
+                        <span className="font-semibold text-sm pr-2 hidden md:inline">{t.taxTipsTitle}</span>
+                    </button>
+
+                    {/* 🔥 Popup Modal เกร็ดความรู้ */}
+                    {showTips && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
+                            <div className={`relative w-full max-w-md p-6 md:p-8 rounded-3xl shadow-2xl ${cardBg} animate-[fade-in_0.2s_ease-out]`}>
+                                
+                                <button onClick={() => setShowTips(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-[#333]' : 'hover:bg-gray-100'}`}>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+
+                                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                                    💡 {t.taxTipsTitle}
+                                </h3>
+                                
+                                <div className="space-y-4 text-sm opacity-90">
+                                    <div className="flex gap-3 items-start">
+                                        <span className="text-lg leading-none mt-0.5">🔹</span>
+                                        <p>{t.tip1}</p>
+                                    </div>
+                                    <div className="flex gap-3 items-start">
+                                        <span className="text-lg leading-none mt-0.5">🔹</span>
+                                        <p>{t.tip2}</p>
+                                    </div>
+                                    <div className="flex gap-3 items-start">
+                                        <span className="text-lg leading-none mt-0.5">🔹</span>
+                                        <p>{t.tip3}</p>
+                                    </div>
+                                </div>
+
+                                <button 
+                                    onClick={() => setShowTips(false)} 
+                                    className={`w-full mt-8 py-3 rounded-xl text-sm font-semibold transition-all ${isDarkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+                                >
+                                    {t.close}
+                                </button>
+
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TaxCalculator />);
+    </script>
+</body>
+</html>
