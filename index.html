@@ -9,127 +9,117 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        body { font-family: 'Inter', sans-serif; }
+        .animate-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState } = React;
         const text = {
-            en: { title: "TaxMate.", reset: "Reset", lightMode: "Light Mode", darkMode: "Dark Mode", langToggle: "🇹🇭 ภาษาไทย", incomeDetails: "Income Details", annualSalary: "Annual Salary", annualBonus: "Annual Bonus", basicDeduct: "Basic Deductions", socialSec: "Social Security (Max 9,000)", investments: "Investments & Insurance", lifeIns: "Life Insurance (Max 100k)", ssf: "SSF (Max 200k)", rmf: "RMF (Max 500k)", thaiEsg: "ThaiESG (Max 300k)", otherDeductions: "Other Deductions", autoApplyText: "*Auto: Expense 100k + Personal 60k", summary: "Summary", totalIncome: "Total Income", totalDeductions: "Total Deductions", netIncome: "Taxable Net Income", takeHome: "Take Home", tax: "Tax", estimatedTax: "Estimated Tax", effRate: "Effective Rate", viewBreakdown: "View Breakdown", hideBreakdown: "Hide Breakdown", aiButton: "✨ AI Smart Optimize", taxTipsTitle: "Tax Tips", close: "Close" },
-            th: { title: "TaxMate.", reset: "ล้างค่า", lightMode: "โหมดสว่าง", darkMode: "โหมดมืด", langToggle: "🇬🇧 English", incomeDetails: "รายได้ทั้งปี", annualSalary: "เงินเดือนทั้งปี (บาท)", annualBonus: "โบนัสทั้งปี (บาท)", basicDeduct: "ลดหย่อนพื้นฐาน", socialSec: "จ่ายเงินสมทบประกันสังคม (9,000 บาท)", investments: "การลงทุน & ประกันชีวิต", lifeIns: "เบี้ยประกันชีวิต (สูงสุด 100,000)", ssf: "กองทุน SSF (สูงสุด 2 แสน)", rmf: "กองทุน RMF (สูงสุด 5 แสน)", thaiEsg: "กองทุน ThaiESG (สูงสุด 3 แสน)", otherDeductions: "ลดหย่อนอื่นๆ (ถ้ามี)", autoApplyText: "*ระบบหักอัตโนมัติ: ค่าใช้จ่าย 1 แสน + ส่วนตัว 6 หมื่น", summary: "สรุปยอด", totalIncome: "รายได้รวมทั้งหมด", totalDeductions: "หักลดหย่อนรวม", netIncome: "เงินได้สุทธิ", takeHome: "เงินคงเหลือ", tax: "ภาษีที่จ่าย", estimatedTax: "ภาษีที่คาดว่าจะต้องจ่าย", effRate: "อัตราภาษีเฉลี่ย", viewBreakdown: "ดูรายละเอียดฐานภาษี", hideBreakdown: "ซ่อนรายละเอียด", aiButton: "✨ AI วิเคราะห์แผนลดหย่อน", taxTipsTitle: "เกร็ดความรู้ภาษี", close: "เข้าใจแล้ว" }
-        };const TaxCalculator = () => {
-            const [isDarkMode, setIsDarkMode] = useState(false);
-            const [lang, setLang] = useState('th');
-            const [annualIncome, setAnnualIncome] = useState('');
-            const [bonus, setBonus] = useState('');
-            const [hasSocialSec, setHasSocialSec] = useState(true);
-            const [lifeIns, setLifeIns] = useState('');
-            const [ssf, setSsf] = useState('');
-            const [rmf, setRmf] = useState('');
-            const [thaiEsg, setThaiEsg] = useState('');
-            const [customDeductions, setCustomDeductions] = useState('');
-            const [showBreakdown, setShowBreakdown] = useState(false);
-            const [showTips, setShowTips] = useState(false);
-            const [aiAdvice, setAiAdvice] = useState(null);
+            en: { title: "TaxMate.", salary: "Annual Salary", bonus: "Annual Bonus", social: "Social Security (9,000)", summary: "Summary", net: "Net Income", tax: "Estimated Tax", ai: "✨ AI Smart Optimize", tips: "Tax Tips", close: "Close" },
+            th: { title: "TaxMate.", salary: "เงินเดือนทั้งปี (บาท)", bonus: "โบนัสทั้งปี (บาท)", social: "จ่ายประกันสังคม (9,000 บาท)", summary: "สรุปยอด", net: "เงินได้สุทธิ", tax: "ภาษีที่ต้องจ่าย", ai: "✨ AI วิเคราะห์แผนลดหย่อน", tips: "เกร็ดความรู้ภาษี", close: "เข้าใจแล้ว" }
+        };
 
-            const fmt = (v) => v ? parseInt(v.toString().replace(/[^0-9]/g, '')).toLocaleString() : '';
-            const raw = (v) => parseInt(v.toString().replace(/,/g, '')) || 0;
-            const handleNum = (v, s, m = 999999999) => {
-                let n = v.replace(/[^0-9]/g, '');
-                if (!n) return s('');
-                if (parseInt(n) > m) n = m.toString();
+        const TaxCalculator = () => {
+            const [isDark, setIsDark] = useState(false);
+            const [lang, setLang] = useState('th');
+            const [inc, setInc] = useState(''); const [bon, setBon] = useState('');
+            const [soc, setSoc] = useState(true); const [life, setLife] = useState('');
+            const [ssf, setSsf] = useState(''); const [rmf, setRmf] = useState('');
+            const [esg, setEsg] = useState(''); const [tips, setTips] = useState(false);
+            const [ai, setAi] = useState(null); const [bk, setBk] = useState(false);
+
+            const fmt = (v) => v ? parseInt(v.toString().replace(/[^0-9]/g,'')).toLocaleString() : '';
+            const raw = (v) => parseInt(v.toString().replace(/,/g,'')) || 0;
+            const handle = (v, s, m = 999999999) => {
+                let n = v.replace(/[^0-9]/g,'');
+                if(!n) return s('');
+                if(parseInt(n) > m) n = m.toString();
                 s(fmt(n));
             };
 
-            const calculateTax = () => {
-                const inc = raw(annualIncome), bon = raw(bonus), total = inc + bon;
-                const stdDeduct = Math.min(total * 0.5, 100000);
-                const totalD = stdDeduct + 60000 + (hasSocialSec ? 9000 : 0) + Math.min(raw(lifeIns), 100000) + Math.min(raw(ssf) + raw(rmf), 500000) + Math.min(raw(thaiEsg), 300000) + raw(customDeductions);
-                const net = Math.max(0, total - totalD);
+            const calculate = () => {
+                const total = raw(inc) + raw(bon);
+                const deduct = Math.min(total*0.5, 100000) + 60000 + (soc?9000:0) + Math.min(raw(life), 100000) + Math.min(raw(ssf)+raw(rmf), 500000) + Math.min(raw(esg), 300000);
+                const net = Math.max(0, total - deduct);
                 let tax = 0, rem = net;
-                const brackets = [{m:0, l:150000, r:0}, {m:150000, l:150000, r:0.05}, {m:300000, l:200000, r:0.10}, {m:500000, l:250000, r:0.15}, {m:750000, l:250000, r:0.20}];
+                const brackets = [{l:150000, r:0, m:0}, {l:150000, r:0.05, m:150000}, {l:200000, r:0.1, m:300000}, {l:250000, r:0.15, m:500000}, {l:250000, r:0.2, m:750000}];
                 const resB = [];
-                for (let b of brackets) {
-                    if (rem <= 0) break;
+                for(let b of brackets) {
+                    if(rem <= 0) break;
                     let txl = Math.min(rem, b.l), t = txl * b.r;
                     tax += t; rem -= txl;
-                    if (txl > 0) resB.push({ rate: b.r * 100, taxPaid: t, min: b.m });
+                    if(txl > 0) resB.push({r: Math.round(b.r*100), t, m: b.m});
                 }
-                return { total, totalD, net, tax, resB, eff: total ? ((tax / total) * 100).toFixed(2) : 0 };
+                return { total, net, tax, resB, eff: total ? ((tax/total)*100).toFixed(2) : 0 };
             };
 
             const runAI = () => {
-                const { net, resB } = calculateTax();
-                if (net <= 150000) return setAiAdvice(lang === 'th' ? "🎉 ยินดีด้วย! คุณไม่ต้องเสียภาษีในปีนี้" : "🎉 0 Tax Liability!");
-                const top = resB[resB.length - 1];
-                const diff = net - top.min;
-                setAiAdvice(lang === 'th' ? `💡 AI: อยู่ฐาน ${top.rate}% ลงทุนเพิ่ม ฿${Math.ceil(diff).toLocaleString()} จะลดฐานภาษีลงได้!` : `💡 AI: At ${top.rate}% bracket. Invest ฿${Math.ceil(diff).toLocaleString()} more to drop!`);
+                const { net, resB } = calculate();
+                if(net <= 150000) return setAi(lang==='th'?"🎉 ไม่ต้องเสียภาษีครับ! แผนคุณดีแล้ว":"🎉 0 Tax! Well planned.");
+                const top = resB[resB.length-1];
+                const diff = net - top.m;
+                setAi(lang==='th'?`💡 AI: อยู่ฐาน ${top.r}% ลงทุนเพิ่มอีก ฿${Math.ceil(diff).toLocaleString()} จะลดฐานภาษีได้!` : `💡 AI: At ${top.r}% bracket. Invest ฿${Math.ceil(diff).toLocaleString()} to drop bracket!`);
             };
 
-            const data = calculateTax(); const t = text[lang];
-            const theme = isDarkMode ? { bg: 'bg-[#111]', crd: 'bg-[#000] border-[#333]', tx: 'text-white', s: 'text-gray-400', in: 'bg-[#111] border-[#333] text-white', ai: 'bg-blue-900/30 border-blue-800 text-blue-300' } 
-                                     : { bg: 'bg-[#F5F5F5]', crd: 'bg-white border-[#E5E5E5]', tx: 'text-black', s: 'text-gray-500', in: 'bg-gray-50 border-gray-200 text-black', ai: 'bg-blue-50 border-blue-200 text-blue-800' };
+            const d = calculate(), t = text[lang];
+            const theme = isDark ? {bg:'bg-[#111]', crd:'bg-[#000] border-[#333]', tx:'text-white', s:'text-gray-400', in:'bg-[#111] border-[#333] text-white', ai:'bg-blue-900/30 text-blue-300 border-blue-800'} : {bg:'bg-[#F5F5F5]', crd:'bg-white border-gray-200', tx:'text-black', s:'text-gray-500', in:'bg-gray-50 border-gray-200 text-black', ai:'bg-blue-50 text-blue-800 border-blue-200'};
 
             return (
-                <div className={`min-h-screen ${theme.bg} ${theme.tx} p-4 md:p-12 transition-all relative pb-32`}>
+                <div className={`min-h-screen ${theme.bg} ${theme.tx} p-4 md:p-12 transition-all relative pb-20`}>
                     <div className="max-w-6xl mx-auto">
                         <div className="flex justify-between items-center mb-10">
-                            <h1 className="text-4xl font-black">{t.title}</h1>
+                            <h1 className="text-4xl font-black tracking-tighter">{t.title}</h1>
                             <div className="flex gap-2">
-                                <button onClick={()=>setLang(lang==='th'?'en':'th')} className="px-4 py-2 rounded-full border text-xs font-bold">{t.langToggle}</button>
-                                <button onClick={()=>setIsDarkMode(!isDarkMode)} className="px-4 py-2 rounded-full border text-xs font-bold">{isDarkMode?t.lightMode:t.darkMode}</button>
+                                <button onClick={()=>setLang(lang==='th'?'en':'th')} className="px-4 py-2 border rounded-full text-xs font-bold">{lang==='th'?'EN':'TH'}</button>
+                                <button onClick={()=>setIsDark(!isDark)} className="px-4 py-2 border rounded-full text-xs font-bold">{isDark?'Light':'Dark'}</button>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                             <div className={`lg:col-span-7 p-8 rounded-3xl border ${theme.crd} space-y-8 shadow-sm`}>
-                                <section>
-                                    <h2 className="text-lg font-bold mb-4 opacity-70">{t.incomeDetails}</h2>
+                                <section className="space-y-4">
+                                    <h2 className="text-lg font-bold opacity-70">{lang==='th'?'รายได้ทั้งปี':'Income'}</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><label className={`block text-xs font-bold mb-2 ${theme.s}`}>{t.annualSalary}</label><input type="text" value={annualIncome} onChange={e=>handleNum(e.target.value,setAnnualIncome)} className={`w-full p-4 rounded-2xl border outline-none ${theme.in}`} placeholder="0" /></div>
-                                        <div><label className={`block text-xs font-bold mb-2 ${theme.s}`}>{t.annualBonus}</label><input type="text" value={bonus} onChange={e=>handleNum(e.target.value,setBonus)} className={`w-full p-4 rounded-2xl border outline-none ${theme.in}`} placeholder="0" /></div>
+                                        <div><label className="text-[10px] font-bold mb-1 block uppercase">{t.salary}</label><input type="text" value={inc} onChange={e=>handle(e.target.value,setInc)} className={`w-full p-4 rounded-2xl border outline-none ${theme.in}`} placeholder="0" /></div>
+                                        <div><label className="text-[10px] font-bold mb-1 block uppercase">{t.bonus}</label><input type="text" value={bon} onChange={e=>handle(e.target.value,setBon)} className={`w-full p-4 rounded-2xl border outline-none ${theme.in}`} placeholder="0" /></div>
                                     </div>
-                                    <p className={`text-xs mt-3 ${theme.s}`}>{t.autoApplyText}</p>
                                 </section>
-                                <section>
-                                    <h2 className="text-lg font-bold mb-4 opacity-70">{t.basicDeduct}</h2>
-                                    <label className="flex items-center gap-3 cursor-pointer"><div className={`w-6 h-6 rounded-lg border flex items-center justify-center ${hasSocialSec?'bg-black border-black':'border-gray-300'}`}>{hasSocialSec&&<svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4"><path d="M5 13l4 4L19 7"/></svg>}</div><input type="checkbox" className="hidden" checked={hasSocialSec} onChange={e=>setHasSocialSec(e.target.checked)}/><span className="text-sm font-medium">{t.socialSec}</span></label>
-                                </section>
-                                <section>
-                                    <h2 className="text-lg font-bold mb-4 opacity-70">{t.investments}</h2>
+                                <section className="space-y-4">
+                                    <h2 className="text-lg font-bold opacity-70">{lang==='th'?'การลงทุน & ลดหย่อน':'Investments'}</h2>
+                                    <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={soc} onChange={e=>setSoc(e.target.checked)} className="w-5 h-5 rounded" /> <span className="text-sm font-medium">{t.social}</span></label>
                                     <div className="grid grid-cols-2 gap-4">
-                                        {[ ['lifeIns', 100000, setLifeIns, lifeIns], ['ssf', 200000, setSsf, ssf], ['rmf', 500000, setRmf, rmf], ['thaiEsg', 300000, setThaiEsg, thaiEsg] ].map(([k, m, s, v]) => (
-                                            <div key={k}><label className={`block text-[10px] font-bold mb-1 ${theme.s}`}>{t[k]}</label><input type="text" value={v} onChange={e=>handleNum(e.target.value,s,m)} className={`w-full p-3 rounded-xl border outline-none ${theme.in}`} placeholder="0" /></div>
+                                        {[ ['ประกันชีวิต',100000,setLife,life], ['SSF',200000,setSsf,ssf], ['RMF',500000,setRmf,rmf], ['ThaiESG',300000,setEsg,esg] ].map(([l,m,s,v])=>(
+                                            <div key={l}><label className="text-[10px] font-bold mb-1 block">{l}</label><input type="text" value={v} onChange={e=>handle(e.target.value,s,m)} className={`w-full p-3 rounded-xl border outline-none ${theme.in}`} placeholder="0" /></div>
                                         ))}
                                     </div>
                                 </section>
                             </div>
                             <div className="lg:col-span-5">
                                 <div className={`sticky top-8 p-8 rounded-3xl border ${theme.crd} shadow-xl space-y-6`}>
-                                    <div className="flex justify-between items-center"><span className={theme.s}>{t.netIncome}</span><span className="font-black">฿{data.net.toLocaleString()}</span></div>
-                                    <div className={`p-8 rounded-3xl text-center border ${isDarkMode?'bg-[#1a1a1a]':'bg-gray-50'}`}>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-1">{t.estimatedTax}</p>
-                                        <h3 className="text-5xl font-black">฿{data.tax.toLocaleString()}</h3>
-                                        <span className="inline-block mt-2 px-3 py-1 rounded-full bg-black text-white text-[10px] font-bold">Rate: {data.eff}%</span>
+                                    <div className="flex justify-between items-center"><span className={theme.s}>{t.net}</span><span className="font-black text-xl">฿{d.net.toLocaleString()}</span></div>
+                                    <div className={`p-8 rounded-3xl text-center border ${isDark?'bg-zinc-900 border-zinc-800':'bg-gray-50 border-gray-100'}`}>
+                                        <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">{t.tax}</p>
+                                        <h3 className="text-5xl font-black my-2">฿{d.tax.toLocaleString()}</h3>
+                                        <span className="text-[10px] bg-black text-white px-3 py-1 rounded-full font-bold">Rate: {d.eff}%</span>
                                     </div>
-                                    <button onClick={runAI} className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">{t.aiButton}</button>
-                                    {aiAdvice && <div className={`p-4 rounded-2xl border text-sm font-medium animate-fade-in ${theme.ai}`}>{aiAdvice}</div>}
-                                    <button onClick={()=>setShowBreakdown(!showBreakdown)} className="w-full py-3 rounded-xl border text-xs font-bold opacity-50">{showBreakdown?t.hideBreakdown:t.viewBreakdown}</button>
-                                    {showBreakdown && data.resB.map((b,i)=>(<div key={i} className="flex justify-between text-xs opacity-70 px-2 animate-fade-in"><span>ฐาน {b.rate}%</span><span>฿{b.taxPaid.toLocaleString()}</span></div>))}
+                                    <button onClick={runAI} className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">{t.ai}</button>
+                                    {ai && <div className={`p-4 rounded-2xl border text-sm font-medium animate-in ${theme.ai}`}>{ai}</div>}
+                                    <button onClick={()=>setBk(!bk)} className="w-full py-2 text-xs font-bold opacity-40 hover:opacity-100">{lang==='th'?'ดูรายละเอียดฐานภาษี':'Breakdown'}</button>
+                                    {bk && d.resB.map((b,i)=>(<div key={i} className="flex justify-between text-xs opacity-60 px-2 animate-in"><span>ฐาน {b.r}%</span><span>฿{b.t.toLocaleString()}</span></div>))}
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <button onClick={()=>setShowTips(true)} className="fixed bottom-8 right-8 w-14 h-14 bg-black text-white rounded-full shadow-2xl flex items-center justify-center">💡</button>
-                    {showTips && (
+                    <button onClick={()=>setTips(true)} className="fixed bottom-8 right-8 w-14 h-14 bg-black text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all">💡</button>
+                    {tips && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-                            <div className={`w-full max-w-md p-8 rounded-[2rem] shadow-2xl ${theme.crd} animate-fade-in`}>
-                                <h3 className="text-2xl font-black mb-6">💡 {t.taxTipsTitle}</h3>
-                                <div className="space-y-4 text-sm opacity-80 leading-relaxed"><p>• 1.5 แสนแรก ฟรีภาษี</p><p>• SSF/RMF ช่วยสะสมความมั่งคั่งแบบ DCA</p><p>• ประกันชีวิตลดหย่อนได้สูงสุด 1 แสน</p></div>
-                                <button onClick={()=>setShowTips(false)} className="w-full mt-8 py-4 bg-black text-white rounded-2xl font-bold">{t.close}</button>
+                            <div className={`w-full max-w-md p-8 rounded-[2rem] border ${theme.crd} animate-in`}>
+                                <h3 className="text-2xl font-black mb-6">💡 {t.tips}</h3>
+                                <div className="space-y-4 text-sm opacity-80 leading-relaxed"><p>• 1.5 แสนแรก ฟรีภาษี</p><p>• SSF/RMF ช่วยสะสมความมั่งคั่งแบบ DCA</p><p>• ประกันชีวิตลดหย่อนได้ตามจ่ายจริงสูงสุด 1 แสน</p></div>
+                                <button onClick={()=>setTips(false)} className="w-full mt-8 py-4 bg-black text-white rounded-2xl font-bold">{t.close}</button>
                             </div>
                         </div>
                     )}
