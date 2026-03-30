@@ -48,7 +48,12 @@
                 viewBreakdown: "View Breakdown",
                 hideBreakdown: "Hide Breakdown",
                 bracket: "Bracket",
-                taxPaid: "Tax Paid"
+                taxPaid: "Tax Paid",
+                taxTipsTitle: "Tax Tips",
+                tip1: "Net income up to 150,000 THB is completely tax-free (0%).",
+                tip2: "Investing in SSF/RMF helps lower your tax bracket. A DCA strategy is highly recommended.",
+                tip3: "A salaried employee with no extra deductions will start paying tax if salary exceeds 25,833 THB/month.",
+                close: "Got it"
             },
             th: {
                 title: "คำนวณภาษี Pro.",
@@ -79,71 +84,8 @@
                 viewBreakdown: "ดูรายละเอียดฐานภาษี",
                 hideBreakdown: "ซ่อนรายละเอียด",
                 bracket: "ฐานภาษี",
-                taxPaid: "ภาษีที่เสีย"
-            }
-        };
-
-        const TaxCalculator = () => {
-            const [isDarkMode, setIsDarkMode] = useState(false);
-            const [lang, setLang] = useState('th');
-            
-            const [annualIncome, setAnnualIncome] = useState('');
-            const [bonus, setBonus] = useState('');
-            const [hasSocialSec, setHasSocialSec] = useState(true);
-            const [lifeIns, setLifeIns] = useState('');
-            const [ssf, setSsf] = useState('');
-            const [rmf, setRmf] = useState('');
-            const [thaiEsg, setThaiEsg] = useState('');
-            const [customDeductions, setCustomDeductions] = useState('');
-            const [showBreakdown, setShowBreakdown] = useState(false);
-
-            useEffect(() => {
-                const savedData = localStorage.getItem('taxDataProV3');
-                if (savedData) {
-                    const data = JSON.parse(savedData);
-                    setAnnualIncome(data.inc || '');
-                    setBonus(data.bon || '');
-                    setHasSocialSec(data.soc !== undefined ? data.soc : true);
-                    setLifeIns(data.life || '');
-                    setSsf(data.ssf || '');
-                    setRmf(data.rmf || '');
-                    setThaiEsg(data.esg || '');
-                    setCustomDeductions(data.ded || '');
-                    setIsDarkMode(data.theme || false);
-                    setLang(data.savedLang || 'th');
-                }
-            }, []);
-
-            useEffect(() => {
-                localStorage.setItem('taxDataProV3', JSON.stringify({
-                    inc: annualIncome, bon: bonus, soc: hasSocialSec,
-                    life: lifeIns, ssf: ssf, rmf: rmf, esg: thaiEsg,
-                    ded: customDeductions, theme: isDarkMode, savedLang: lang
-                }));
-            }, [annualIncome, bonus, hasSocialSec, lifeIns, ssf, rmf, thaiEsg, customDeductions, isDarkMode, lang]);
-
-            // 🔥 ฟังก์ชันใหม่: กรองให้เหลือแค่ตัวเลข ห้ามพิมพ์เครื่องหมายลบ หรือตัวอักษร
-            const enforcePositive = (value) => {
-                return value.replace(/[^0-9.]/g, ''); 
-            };
-
-            // 🔥 ฟังก์ชันล็อกตัวเลขสูงสุด (และกรองเครื่องหมายลบด้วย)
-            const enforceMaxLimit = (value, maxLimit) => {
-                let cleanValue = value.replace(/[^0-9.]/g, ''); // กรองตัวอักษรแปลกๆ ทิ้งก่อน
-                if (cleanValue === '') return '';
-                const num = parseFloat(cleanValue);
-                if (num > maxLimit) return maxLimit.toString();
-                return cleanValue;
-            };
-
-            const calculateTax = () => {
-                const inc = parseFloat(annualIncome) || 0;
-                const bon = parseFloat(bonus) || 0;
-                const totalIncome = inc + bon;
-
-                const standardDeduction = Math.min(totalIncome * 0.5, 100000);
-                const personalDeduction = 60000;
-                const socSecDeduction = hasSocialSec ? 9000 : 0;
-                
-                const lifeLimit = Math.min(parseFloat(lifeIns) || 0, 100000);
-                const ssfLimit = Math.min(parseFloat(ssf) || 0, total
+                taxPaid: "ภาษีที่เสีย",
+                taxTipsTitle: "เกร็ดความรู้ภาษี",
+                tip1: "เงินได้สุทธิ 150,000 บาทแรก ได้รับการยกเว้นภาษี (0%) ทันที",
+                tip2: "กองทุน SSF/RMF นอกจากจะช่วยลดหย่อนภาษีแล้ว ยังเหมาะกับการลงทุนแบบถัวเฉลี่ย (DCA) เพื่ออนาคต",
+                tip3: "มนุษย์เงินเดือนที่ไม่มีลดหย่อนอื่นเลย จะเริ่มเสียภาษีเมื่อเงินเดือนเกิน 25,833 บาท/เดือน",
