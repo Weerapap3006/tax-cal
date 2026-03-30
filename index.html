@@ -107,11 +107,11 @@
             const [customDeductions, setCustomDeductions] = useState('');
             const [showBreakdown, setShowBreakdown] = useState(false);
             
-            // 🔥 State สำหรับเปิด/ปิด Popup เกร็ดความรู้
+            // State สำหรับเปิด/ปิด Popup
             const [showTips, setShowTips] = useState(false);
 
             useEffect(() => {
-                const savedData = localStorage.getItem('taxDataProV5');
+                const savedData = localStorage.getItem('taxDataProV6');
                 if (savedData) {
                     const data = JSON.parse(savedData);
                     setAnnualIncome(data.inc || '');
@@ -128,19 +128,18 @@
             }, []);
 
             useEffect(() => {
-                localStorage.setItem('taxDataProV5', JSON.stringify({
+                localStorage.setItem('taxDataProV6', JSON.stringify({
                     inc: annualIncome, bon: bonus, soc: hasSocialSec,
                     life: lifeIns, ssf: ssf, rmf: rmf, esg: thaiEsg,
                     ded: customDeductions, theme: isDarkMode, savedLang: lang
                 }));
             }, [annualIncome, bonus, hasSocialSec, lifeIns, ssf, rmf, thaiEsg, customDeductions, isDarkMode, lang]);
 
-            // 🔥 ฟังก์ชันกรองตัวอักษร: อนุญาตแค่เลข 0-9 เท่านั้น (บล็อกสัญลักษณ์และตัวอักษร)
+            // ฟังก์ชันกรองให้รับแต่ตัวเลข (ลบเครื่องหมาย - และตัวอักษร)
             const enforcePositive = (value) => {
                 return value.replace(/[^0-9]/g, ''); 
             };
 
-            // 🔥 ฟังก์ชันล็อกเพดานสูงสุด และกรองตัวอักษรพิเศษ
             const enforceMaxLimit = (value, maxLimit) => {
                 let cleanValue = value.replace(/[^0-9]/g, ''); 
                 if (cleanValue === '') return '';
@@ -240,9 +239,7 @@
 
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                             
-                            {/* ฝั่งซ้าย (กรอกข้อมูล) */}
                             <div className={`lg:col-span-7 p-6 md:p-8 rounded-3xl border ${cardBg} shadow-sm transition-all space-y-8 overflow-hidden`}>
-                                
                                 <div>
                                     <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.incomeDetails}</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -297,10 +294,8 @@
                                         <input type="text" inputMode="numeric" value={customDeductions} onChange={(e) => setCustomDeductions(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
                                     </div>
                                 </div>
-
                             </div>
 
-                            {/* ฝั่งขวา (ผลลัพธ์) */}
                             <div className="lg:col-span-5 relative">
                                 <div className={`sticky top-8 p-6 md:p-8 rounded-3xl border ${cardBg} shadow-xl transition-all overflow-hidden`}>
                                     <h2 className="text-xl font-bold mb-6">{t.summary}</h2>
@@ -362,13 +357,12 @@
                                             ))}
                                         </div>
                                     )}
-
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* 🔥 ปุ่ม Floating Button ตรงมุมขวาล่าง */}
+                    {/* ปุ่ม Floating ขวาล่าง */}
                     <button 
                         onClick={() => setShowTips(true)}
                         className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl flex items-center gap-2 transition-transform hover:scale-105 z-40 ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
@@ -377,7 +371,7 @@
                         <span className="font-semibold text-sm pr-2 hidden md:inline">{t.taxTipsTitle}</span>
                     </button>
 
-                    {/* 🔥 Popup Modal เกร็ดความรู้ */}
+                    {/* Popup เกร็ดความรู้ */}
                     {showTips && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
                             <div className={`relative w-full max-w-md p-6 md:p-8 rounded-3xl shadow-2xl ${cardBg} animate-[fade-in_0.2s_ease-out]`}>
@@ -411,11 +405,9 @@
                                 >
                                     {t.close}
                                 </button>
-
                             </div>
                         </div>
                     )}
-
                 </div>
             );
         };
