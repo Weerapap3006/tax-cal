@@ -14,23 +14,19 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body>
+<body class="bg-gray-50">
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState } = React;
         const TaxCalculator = () => {
             const [isDark, setIsDark] = useState(false);
             const [lang, setLang] = useState('th');
             const [annualIncome, setAnnualIncome] = useState('');
             const [bonus, setBonus] = useState('');
-            const [hasSocial, setHasSocial] = useState(true);
             const [lifeIns, setLifeIns] = useState('');
             const [ssf, setSsf] = useState('');
             const [rmf, setRmf] = useState('');
             const [thaiEsg, setThaiEsg] = useState('');
-            const [other, setOther] = useState('');
-            const [showBreakdown, setShowBreakdown] = useState(false);
-            const [showTips, setShowTips] = useState(false);
             const [aiAdvice, setAiAdvice] = useState(null);
 
             const fmt = (v) => v ? parseInt(v.toString().replace(/[^0-9]/g, '')).toLocaleString() : '';
@@ -44,15 +40,10 @@
 
             const calc = () => {
                 const inc = raw(annualIncome), bon = raw(bonus), total = inc + bon;
-                const deduct = Math.min(total * 0.5, 100000) + 60000 + (hasSocial ? 9000 : 0) + 
-                               Math.min(raw(lifeIns), 100000) + Math.min(raw(ssf) + raw(rmf), 500000) + 
-                               Math.min(raw(thaiEsg), 300000) + raw(other);
+                const deduct = 100000 + 60000 + 9000 + Math.min(raw(lifeIns), 100000) + Math.min(raw(ssf)+raw(rmf), 500000) + Math.min(raw(thaiEsg), 300000);
                 const net = Math.max(0, total - deduct);
                 let tax = 0, rem = net;
-                const brks = [
-                    {m:0, l:150000, r:0}, {m:150000, l:150000, r:0.05}, {m:300000, l:200000, r:0.1},
-                    {m:500000, l:250000, r:0.15}, {m:750000, l:250000, r:0.2}, {m:1000000, l:1000000, r:0.25}
-                ];
+                const brks = [{l:150000, r:0, m:0}, {l:150000, r:0.05, m:150000}, {l:200000, r:0.1, m:300000}, {l:250000, r:0.15, m:500000}, {l:250000, r:0.2, m:750000}];
                 const resB = [];
                 for (let b of brks) {
                     if (rem <= 0) break;
@@ -60,66 +51,51 @@
                     tax += t; rem -= txl;
                     if (txl > 0) resB.push({r: Math.round(b.r*100), t, m: b.m});
                 }
-                return { total, deduct, net, tax, resB, eff: total ? ((tax/total)*100).toFixed(2) : 0 };
+                return { total, net, tax, resB, eff: total ? ((tax/total)*100).toFixed(2) : 0 };
             };
 
             const runAI = () => {
                 const { net, resB } = calc();
-                if (net <= 150000) return setAiAdvice(lang === 'th' ? "🎉 แผนการเงินดีมากครับ! คุณไม่ต้องเสียภาษีเลย" : "🎉 Great! 0 tax liability.");
+                if (net <= 150000) return setAiAdvice(lang === 'th' ? "🎉 แผนการเงินดีมากครับ! ไม่ต้องเสียภาษี" : "🎉 0 Tax Liability!");
                 const top = resB[resB.length - 1];
                 const diff = net - top.m;
-                setAiAdvice(lang === 'th' ? `💡 AI: อยู่ฐาน ${top.r}% ลดหย่อนอีก ฿${Math.ceil(diff).toLocaleString()} จะลดฐานภาษีลงได้อีกขั้น!` : `💡 AI: At ${top.r}% bracket. Invest ฿${Math.ceil(diff).toLocaleString()} more to drop down!`);
+                setAiAdvice(lang === 'th' ? `💡 AI: อยู่ฐาน ${top.r}% ลดหย่อนอีก ฿${Math.ceil(diff).toLocaleString()} จะลดฐานภาษีลงได้!` : `💡 AI: Invest ฿${Math.ceil(diff).toLocaleString()} more to drop bracket!`);
             };
 
-            const d = calc(), t = lang === 'th' ? {title:"TaxMate.", btn:"✨ AI วิเคราะห์แผน", sum:"สรุปยอด", net:"เงินได้สุทธิ", tax:"ภาษีที่ต้องจ่าย", tip:"เกร็ดความรู้"} : {title:"TaxMate.", btn:"✨ AI Optimize", sum:"Summary", net:"Net Income", tax:"Tax to Pay", tip:"Tax Tips"};
-            const c = isDark ? {bg:'bg-[#111]', crd:'bg-[#000] border-[#333]', tx:'text-white', s:'text-gray-400', in:'bg-[#111] border-[#333] text-white', ai:'bg-blue-900/30 text-blue-300 border-blue-800'} : {bg:'bg-[#F5F5F5]', crd:'bg-white border-[#E5E5E5]', tx:'text-black', s:'text-gray-500', in:'bg-gray-50 border-gray-200 text-black', ai:'bg-blue-50 text-blue-800 border-blue-200'};
+            const d = calc(), c = isDark ? 'bg-[#111] text-white' : 'bg-[#F5F5F5] text-black';
+            const card = isDark ? 'bg-black border-[#333]' : 'bg-white border-gray-200';
+            const aiBox = isDark ? 'bg-blue-900/30 text-blue-300 border-blue-800' : 'bg-blue-50 text-blue-800 border-blue-200';
 
             return (
-                <div className={`min-h-screen ${c.bg} ${c.tx} p-4 md:p-12 transition-all relative`}>
-                    <div className="max-w-6xl mx-auto">
-                        <div className="flex justify-between items-center mb-8">
-                            <h1 className="text-4xl font-black">{t.title}</h1>
+                <div className={`min-h-screen ${c} p-4 md:p-12 transition-all`}>
+                    <div className="max-w-4xl mx-auto">
+                        <div className="flex justify-between items-center mb-10">
+                            <h1 className="text-4xl font-black tracking-tighter">TaxMate.</h1>
                             <div className="flex gap-2">
                                 <button onClick={()=>setLang(lang==='th'?'en':'th')} className="p-2 border rounded-full text-xs font-bold">{lang==='th'?'EN':'TH'}</button>
                                 <button onClick={()=>setIsDark(!isDark)} className="p-2 border rounded-full text-xs font-bold">{isDark?'Light':'Dark'}</button>
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            <div className={`lg:col-span-7 p-8 rounded-3xl border ${c.crd} space-y-6 shadow-sm`}>
-                                <div><label className={`block text-xs font-bold mb-2 ${c.s}`}>{lang==='th'?'เงินเดือนทั้งปี':'Salary'}</label><input type="text" value={annualIncome} onChange={e=>h(e.target.value,setAnnualIncome)} className={`w-full p-4 rounded-2xl border outline-none ${c.in}`} placeholder="0" /></div>
-                                <div><label className={`block text-xs font-bold mb-2 ${c.s}`}>{lang==='th'?'โบนัสทั้งปี':'Bonus'}</label><input type="text" value={bonus} onChange={e=>h(e.target.value,setBonus)} className={`w-full p-4 rounded-2xl border outline-none ${c.in}`} placeholder="0" /></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className={`p-8 rounded-3xl border ${card} shadow-sm space-y-6`}>
+                                <div><label className="text-xs font-bold opacity-50 mb-2 block">{lang==='th'?'เงินเดือนทั้งปี':'Salary'}</label><input type="text" value={annualIncome} onChange={e=>h(e.target.value,setAnnualIncome)} className={`w-full p-4 rounded-xl border outline-none ${isDark?'bg-[#111] border-[#333]':'bg-gray-50'}`} placeholder="0" /></div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    {[['ประกันชีวิต',100000,setLifeIns,lifeIns],['SSF (2แสน)',200000,setSsf,ssf],['RMF (5แสน)',500000,setRmf,rmf],['ThaiESG (3แสน)',300000,setThaiEsg,thaiEsg]].map(([l,m,s,v])=>(
-                                        <div key={l}><label className={`block text-[10px] font-bold mb-1 ${c.s}`}>{l}</label><input type="text" value={v} onChange={e=>h(e.target.value,s,m)} className={`w-full p-3 rounded-xl border outline-none ${c.in}`} placeholder="0" /></div>
+                                    {[['ประกันชีวิต',100000,setLifeIns,lifeIns],['SSF/RMF',500000,setSsf,ssf],['ThaiESG',300000,setThaiEsg,thaiEsg]].map(([l,m,s,v])=>(
+                                        <div key={l}><label className="text-[10px] font-bold opacity-50 block">{l}</label><input type="text" value={v} onChange={e=>h(e.target.value,s,m)} className={`w-full p-3 rounded-xl border outline-none ${isDark?'bg-[#111] border-[#333]':'bg-gray-50'}`} placeholder="0" /></div>
                                     ))}
                                 </div>
                             </div>
-                            <div className="lg:col-span-5">
-                                <div className={`sticky top-8 p-8 rounded-3xl border ${c.crd} shadow-xl space-y-6`}>
-                                    <div className="flex justify-between items-center"><span className={c.s}>{t.net}</span><span className="font-black">฿{d.net.toLocaleString()}</span></div>
-                                    <div className={`p-8 rounded-3xl text-center border ${isDark?'bg-[#1a1a1a]':'bg-gray-50'}`}>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-1">{t.tax}</p>
-                                        <h3 className="text-5xl font-black">฿{d.tax.toLocaleString()}</h3>
-                                        <span className="inline-block mt-2 px-3 py-1 rounded-full bg-black text-white text-[10px] font-bold">Rate: {d.eff}%</span>
-                                    </div>
-                                    <button onClick={runAI} className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all">{t.btn}</button>
-                                    {aiAdvice && <div className={`p-4 rounded-2xl border text-sm font-medium animate-in ${c.ai}`}>{aiAdvice}</div>}
-                                    <button onClick={()=>setShowBreakdown(!showBreakdown)} className="w-full py-2 text-xs font-bold opacity-40 hover:opacity-100">{lang==='th'?'ดูฐานภาษี':'Breakdown'}</button>
-                                    {showBreakdown && d.resB.map((b,i)=>(<div key={i} className="flex justify-between text-xs opacity-60 px-2"><span>ฐาน {b.r}%</span><span>฿{b.t.toLocaleString()}</span></div>))}
+                            <div className={`p-8 rounded-3xl border ${card} shadow-xl space-y-6`}>
+                                <div className={`p-6 rounded-2xl text-center ${isDark?'bg-zinc-900':'bg-gray-50'}`}>
+                                    <p className="text-[10px] font-bold opacity-50 uppercase">{lang==='th'?'ภาษีที่ต้องจ่าย':'Tax to Pay'}</p>
+                                    <h3 className="text-5xl font-black my-2">฿{d.tax.toLocaleString()}</h3>
+                                    <span className="text-[10px] bg-black text-white px-2 py-1 rounded-full">Rate: {d.eff}%</span>
                                 </div>
+                                <button onClick={runAI} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">{lang==='th'?'✨ AI วิเคราะห์แผน':'✨ AI Optimize'}</button>
+                                {aiAdvice && <div className={`p-4 rounded-xl border text-sm font-medium animate-in ${aiBox}`}>{aiAdvice}</div>}
                             </div>
                         </div>
                     </div>
-                    <button onClick={()=>setShowTips(true)} className="fixed bottom-8 right-8 w-14 h-14 bg-black text-white rounded-full shadow-2xl flex items-center justify-center">💡</button>
-                    {showTips && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-                            <div className={`w-full max-w-md p-8 rounded-[2rem] ${c.crd} animate-in`}>
-                                <h3 className="text-2xl font-black mb-4">💡 {t.tip}</h3>
-                                <div className="space-y-4 text-sm opacity-80"><p>• 1.5 แสนแรก ฟรีภาษี</p><p>• SSF/RMF ช่วยลดฐานภาษีได้มาก</p></div>
-                                <button onClick={()=>setShowTips(false)} className="w-full mt-8 py-4 bg-black text-white rounded-2xl font-bold">Close</button>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         };
