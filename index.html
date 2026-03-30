@@ -10,8 +10,6 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -108,49 +106,63 @@
             const [thaiEsg, setThaiEsg] = useState('');
             const [customDeductions, setCustomDeductions] = useState('');
             const [showBreakdown, setShowBreakdown] = useState(false);
+            
+            // State สำหรับเปิด/ปิด Popup
             const [showTips, setShowTips] = useState(false);
 
-            // 🔥 ฟังก์ชันแปลงตัวเลขให้มีลูกน้ำ (ใช้สำหรับแสดงผลในช่องกรอก)
-            const formatWithComma = (val) => {
-                if (!val && val !== 0) return '';
-                let clean = val.toString().replace(/[^0-9]/g, ''); // เอาเฉพาะตัวเลข
-                if (clean === '') return '';
-                return parseInt(clean).toLocaleString('en-US'); // ใส่ลูกน้ำ
-            };
-
-            // 🔥 ฟังก์ชันดึงค่าตัวเลขล้วน (เอาลูกน้ำออกเพื่อใช้คำนวณ)
-            const getRawNumber = (val) => {
-                if (!val) return 0;
-                return parseFloat(val.toString().replace(/,/g, '')) || 0;
-            };
-
-            // 🔥 ฟังก์ชันจัดการการเปลี่ยนแปลงในช่องกรอก
-            const handleNumberChange = (value, setter, max = Infinity) => {
-                let cleanValue = value.replace(/[^0-9]/g, '');
-                if (cleanValue === '') {
-                    setter('');
-                    return;
+            useEffect(() => {
+                const savedData = localStorage.getItem('taxDataProV6');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    setAnnualIncome(data.inc || '');
+                    setBonus(data.bon || '');
+                    setHasSocialSec(data.soc !== undefined ? data.soc : true);
+                    setLifeIns(data.life || '');
+                    setSsf(data.ssf || '');
+                    setRmf(data.rmf || '');
+                    setThaiEsg(data.esg || '');
+                    setCustomDeductions(data.ded || '');
+                    setIsDarkMode(data.theme || false);
+                    setLang(data.savedLang || 'th');
                 }
-                let num = parseInt(cleanValue);
-                if (num > max) num = max;
-                setter(formatWithComma(num));
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('taxDataProV6', JSON.stringify({
+                    inc: annualIncome, bon: bonus, soc: hasSocialSec,
+                    life: lifeIns, ssf: ssf, rmf: rmf, esg: thaiEsg,
+                    ded: customDeductions, theme: isDarkMode, savedLang: lang
+                }));
+            }, [annualIncome, bonus, hasSocialSec, lifeIns, ssf, rmf, thaiEsg, customDeductions, isDarkMode, lang]);
+
+            // ฟังก์ชันกรองให้รับแต่ตัวเลข (ลบเครื่องหมาย - และตัวอักษร)
+            const enforcePositive = (value) => {
+                return value.replace(/[^0-9]/g, ''); 
+            };
+
+            const enforceMaxLimit = (value, maxLimit) => {
+                let cleanValue = value.replace(/[^0-9]/g, ''); 
+                if (cleanValue === '') return '';
+                const num = parseInt(cleanValue, 10);
+                if (num > maxLimit) return maxLimit.toString();
+                return cleanValue;
             };
 
             const calculateTax = () => {
-                const inc = getRawNumber(annualIncome);
-                const bon = getRawNumber(bonus);
+                const inc = parseFloat(annualIncome) || 0;
+                const bon = parseFloat(bonus) || 0;
                 const totalIncome = inc + bon;
 
                 const standardDeduction = Math.min(totalIncome * 0.5, 100000);
                 const personalDeduction = 60000;
                 const socSecDeduction = hasSocialSec ? 9000 : 0;
                 
-                const lifeLimit = Math.min(getRawNumber(lifeIns), 100000);
-                const ssfLimit = Math.min(getRawNumber(ssf), totalIncome * 0.3, 200000);
-                const rmfLimit = Math.min(getRawNumber(rmf), totalIncome * 0.3, 500000);
+                const lifeLimit = Math.min(parseFloat(lifeIns) || 0, 100000);
+                const ssfLimit = Math.min(parseFloat(ssf) || 0, totalIncome * 0.3, 200000);
+                const rmfLimit = Math.min(parseFloat(rmf) || 0, totalIncome * 0.3, 500000);
                 const combinedSsfRmf = Math.min(ssfLimit + rmfLimit, 500000);
-                const esgLimit = Math.min(getRawNumber(thaiEsg), totalIncome * 0.3, 300000);
-                const otherLimit = getRawNumber(customDeductions);
+                const esgLimit = Math.min(parseFloat(thaiEsg) || 0, totalIncome * 0.3, 300000);
+                const otherLimit = parseFloat(customDeductions) || 0;
 
                 const totalDeductions = standardDeduction + personalDeduction + socSecDeduction + lifeLimit + combinedSsfRmf + esgLimit + otherLimit;
                 const netIncome = Math.max(0, totalIncome - totalDeductions);
@@ -210,6 +222,8 @@
                 setLifeIns(''); setSsf(''); setRmf(''); setThaiEsg(''); setCustomDeductions('');
             };
 
+            const toggleLang = () => setLang(lang === 'th' ? 'en' : 'th');
+
             return (
                 <div className={`min-h-screen transition-colors duration-300 ${themeBg} ${textPrimary} p-4 md:p-8 lg:p-12 pb-24 flex justify-center relative`}>
                     <div className="w-full max-w-6xl">
@@ -217,7 +231,7 @@
                         <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
                             <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
                             <div className="flex flex-wrap items-center gap-2">
-                                <button onClick={() => setLang(lang === 'th' ? 'en' : 'th')} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{t.langToggle}</button>
+                                <button onClick={toggleLang} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{t.langToggle}</button>
                                 <button onClick={() => setIsDarkMode(!isDarkMode)} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{isDarkMode ? t.lightMode : t.darkMode}</button>
                                 <button onClick={resetData} className={`px-4 py-2 text-sm rounded-full border transition-all ${btnClass}`}>{t.reset}</button>
                             </div>
@@ -231,11 +245,11 @@
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className={`block text-sm mb-2 ${textSecondary}`}>{t.annualSalary}</label>
-                                            <input type="text" value={annualIncome} onChange={(e) => handleNumberChange(e.target.value, setAnnualIncome)} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                            <input type="text" inputMode="numeric" value={annualIncome} onChange={(e) => setAnnualIncome(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
                                         </div>
                                         <div>
                                             <label className={`block text-sm mb-2 ${textSecondary}`}>{t.annualBonus}</label>
-                                            <input type="text" value={bonus} onChange={(e) => handleNumberChange(e.target.value, setBonus)} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                            <input type="text" inputMode="numeric" value={bonus} onChange={(e) => setBonus(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
                                         </div>
                                     </div>
                                     <p className={`text-xs mt-3 ${textSecondary}`}>{t.autoApplyText}</p>
@@ -255,17 +269,29 @@
                                 <div>
                                     <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.investments}</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div><label className={`block text-xs mb-2 ${textSecondary}`}>{t.lifeIns}</label><input type="text" value={lifeIns} onChange={(e) => handleNumberChange(e.target.value, setLifeIns, 100000)} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" /></div>
-                                        <div><label className={`block text-xs mb-2 ${textSecondary}`}>{t.ssf}</label><input type="text" value={ssf} onChange={(e) => handleNumberChange(e.target.value, setSsf, 200000)} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" /></div>
-                                        <div><label className={`block text-xs mb-2 ${textSecondary}`}>{t.rmf}</label><input type="text" value={rmf} onChange={(e) => handleNumberChange(e.target.value, setRmf, 500000)} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" /></div>
-                                        <div><label className={`block text-xs mb-2 ${textSecondary}`}>{t.thaiEsg}</label><input type="text" value={thaiEsg} onChange={(e) => handleNumberChange(e.target.value, setThaiEsg, 300000)} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" /></div>
+                                        <div>
+                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.lifeIns}</label>
+                                            <input type="text" inputMode="numeric" value={lifeIns} onChange={(e) => setLifeIns(enforceMaxLimit(e.target.value, 100000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.ssf}</label>
+                                            <input type="text" inputMode="numeric" value={ssf} onChange={(e) => setSsf(enforceMaxLimit(e.target.value, 200000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.rmf}</label>
+                                            <input type="text" inputMode="numeric" value={rmf} onChange={(e) => setRmf(enforceMaxLimit(e.target.value, 500000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-xs mb-2 ${textSecondary}`}>{t.thaiEsg}</label>
+                                            <input type="text" inputMode="numeric" value={thaiEsg} onChange={(e) => setThaiEsg(enforceMaxLimit(e.target.value, 300000))} className={`w-full px-3 py-2 rounded-lg border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div>
                                     <h2 className="text-lg font-semibold mb-4 border-b pb-2 opacity-80">{t.otherDeductions}</h2>
                                     <div>
-                                        <input type="text" value={customDeductions} onChange={(e) => handleNumberChange(e.target.value, setCustomDeductions)} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
+                                        <input type="text" inputMode="numeric" value={customDeductions} onChange={(e) => setCustomDeductions(enforcePositive(e.target.value))} className={`w-full px-4 py-3 rounded-xl border outline-none transition-all duration-200 ${inputClass}`} placeholder="0" />
                                     </div>
                                 </div>
                             </div>
@@ -336,6 +362,7 @@
                         </div>
                     </div>
 
+                    {/* ปุ่ม Floating ขวาล่าง */}
                     <button 
                         onClick={() => setShowTips(true)}
                         className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl flex items-center gap-2 transition-transform hover:scale-105 z-40 ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
@@ -344,21 +371,37 @@
                         <span className="font-semibold text-sm pr-2 hidden md:inline">{t.taxTipsTitle}</span>
                     </button>
 
+                    {/* Popup เกร็ดความรู้ */}
                     {showTips && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
                             <div className={`relative w-full max-w-md p-6 md:p-8 rounded-3xl shadow-2xl ${cardBg} animate-[fade-in_0.2s_ease-out]`}>
+                                
                                 <button onClick={() => setShowTips(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-[#333]' : 'hover:bg-gray-100'}`}>
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
-                                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">💡 {t.taxTipsTitle}</h3>
+
+                                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                                    💡 {t.taxTipsTitle}
+                                </h3>
+                                
                                 <div className="space-y-4 text-sm opacity-90">
-                                    <p>🔹 {t.tip1}</p>
-                                    <p>🔹 {t.tip2}</p>
-                                    <p>🔹 {t.tip3}</p>
+                                    <div className="flex gap-3 items-start">
+                                        <span className="text-lg leading-none mt-0.5">🔹</span>
+                                        <p>{t.tip1}</p>
+                                    </div>
+                                    <div className="flex gap-3 items-start">
+                                        <span className="text-lg leading-none mt-0.5">🔹</span>
+                                        <p>{t.tip2}</p>
+                                    </div>
+                                    <div className="flex gap-3 items-start">
+                                        <span className="text-lg leading-none mt-0.5">🔹</span>
+                                        <p>{t.tip3}</p>
+                                    </div>
                                 </div>
+
                                 <button 
                                     onClick={() => setShowTips(false)} 
-                                    className={`w-full mt-8 py-3 rounded-xl text-sm font-semibold transition-all ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
+                                    className={`w-full mt-8 py-3 rounded-xl text-sm font-semibold transition-all ${isDarkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
                                 >
                                     {t.close}
                                 </button>
